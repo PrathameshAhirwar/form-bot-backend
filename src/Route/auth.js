@@ -93,6 +93,27 @@ authRouter.post("/login",async (req,res)=>{
     }
 })
 
+// Logout route
+authRouter.post("/logout", userAuth, (req, res) => {
+    try {
+        // Check if user exists in the request from userAuth middleware
+        if (!req.user) {
+            return res.status(400).json({ message: "User is not logged in" });
+        }
+
+        // Clear cookies to log the user out
+        res.clearCookie('token');
+        res.clearCookie('userId');
+
+        res.json({
+            message: "User logged out successfully"
+        });
+    } catch (err) {
+        console.error("Error during logout:", err);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
 
 
 module.exports = authRouter

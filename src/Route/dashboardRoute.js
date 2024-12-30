@@ -121,7 +121,7 @@ router.post('/:userId/createForm', userAuth, async (req, res) => {
 });
 
 // Create form in folder
-router.post('/:userId/:folderId/createForm', userAuth, async (req, res) => {
+router.post('/:userId/folder/:folderId/createForm', userAuth, async (req, res) => {
     try {
         const { userId, folderId } = req.params;
         const { name, schema } = req.body;
@@ -190,6 +190,27 @@ router.delete('/:userId/folder/:folderId', userAuth, async (req, res) => {
         res.status(400).send(err.message);
     }
 });
+
+// Get forms inside a folder
+router.get('/:userId/folder/:folderId/forms', userAuth, async (req, res) => {
+    try {
+        const { userId, folderId } = req.params;
+
+        if (req.user._id.toString() !== userId) {
+            return res.status(403).send('Unauthorized access');
+        }
+
+        const folder = await Folder.findOne({ _id: folderId, userId }).populate('forms');
+        if (!folder) {
+            return res.status(404).send('Folder not found');
+        }
+
+        res.json(folder.forms);
+    } catch (err) {
+        res.status(400).send(err.message);
+    }
+});
+
 
 // Delete form
 router.delete('/:userId/form/:formId', userAuth, async (req, res) => {
