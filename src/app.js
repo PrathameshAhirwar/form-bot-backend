@@ -10,12 +10,17 @@ const PORT = 3000
 
 
 app.use(cors({
-    origin: 'http://localhost:3006',
-    credentials:true
+    origin: 'http://localhost:3006', // Your frontend's origin
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'], // Allow PATCH method
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
+
+
+
 app.use(express.json())
 app.use(cookieParser())
-
+app.options('*', cors());
 
 app.use('/',authRouter);
 app.use('/',dashBoardRouter);

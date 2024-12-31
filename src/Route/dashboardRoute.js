@@ -191,8 +191,8 @@ router.delete('/:userId/folder/:folderId', userAuth, async (req, res) => {
     }
 });
 
-// Get forms inside a folder
-router.get('/:userId/folder/:folderId/forms', userAuth, async (req, res) => {
+// Delete folder
+router.delete('/:userId/folder/:folderId', userAuth, async (req, res) => {
     try {
         const { userId, folderId } = req.params;
 
@@ -200,12 +200,18 @@ router.get('/:userId/folder/:folderId/forms', userAuth, async (req, res) => {
             return res.status(403).send('Unauthorized access');
         }
 
-        const folder = await Folder.findOne({ _id: folderId, userId }).populate('forms');
+        const folder = await Folder.findOne({ _id: folderId, userId });
         if (!folder) {
             return res.status(404).send('Folder not found');
         }
 
-        res.json(folder.forms);
+        // Permanently delete the folder
+        await Folder.deleteOne({ _id: folderId });
+
+        // Permanently delete all forms inside the folder
+        await Form.deleteMany({ folderId });
+
+        res.send('Folder deleted successfully');
     } catch (err) {
         res.status(400).send(err.message);
     }
@@ -226,13 +232,39 @@ router.delete('/:userId/form/:formId', userAuth, async (req, res) => {
             return res.status(404).send('Form not found');
         }
 
-        // Soft delete form
-        await form.updateOne({ isDeleted: true });
+        // Permanently delete the form
+        await Form.deleteOne({ _id: formId });
 
         res.send('Form deleted successfully');
     } catch (err) {
         res.status(400).send(err.message);
     }
 });
+
+// Get forms inside a specific folder
+router.get('/:userId/folder/:folderId/forms', userAuth, async (req, res) => {
+    try {
+        const { userId, folderId } = req.params;
+
+        // Verify user authorization
+        if (req.user._id.toString() !== userId) {
+            return res.status(403).send('Unauthorized access');
+        }
+
+        // Find the folder
+        const folder = await Folder.findOne({ _id: folderId, userId });
+        if (!folder) {
+            return res.status(404).send('Folder not found');
+        }
+
+        // Fetch forms inside the folder (excluding soft-deleted ones)
+        const forms = await Form.find({ folderId, userId, isDeleted: false });
+
+        res.json(forms);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
 
 module.exports = router;
