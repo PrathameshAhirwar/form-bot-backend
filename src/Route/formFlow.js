@@ -98,7 +98,33 @@ router.post('/:userId/form/:formId/flow/step', userAuth, async (req, res) => {
   }
 });
 
+router.get('/form/:formId/chat', async (req, res) => {
+  try {
+      const { formId } = req.params;
 
+      // Validate the formId format (if using MongoDB, validate ObjectId)
+      if (!formId || formId.length !== 24) {
+          return res.status(400).json({ error: 'Invalid form ID format' });
+      }
+
+      // Find the form by formId
+      const form = await Form.findById(formId);
+
+      // Check if the form exists
+      if (!form) {
+          return res.status(404).json({ error: 'Form not found' });
+      }
+
+      // Extract the flow steps
+      const flowSteps = form.flowSteps || [];
+
+      // Send the flow steps in the response
+      res.status(200).json({ steps: flowSteps });
+  } catch (error) {
+      console.error('Error fetching form flow:', error.message);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
   
