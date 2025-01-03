@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose'); 
 const { Form, FlowStep } = require('../models/form');
 const userAuth = require('../middlewares/userAuth');
 
@@ -23,92 +24,118 @@ router.get('/:userId/form/:formId/flow', userAuth, async (req, res) => {
     }
 });
 
-// Add step to flow
 router.post('/:userId/form/:formId/flow/step', userAuth, async (req, res) => {
+  try {
+    const { userId, formId } = req.params;
+    const stepData = req.body;
+
+    console.log("Step data received:", stepData); // Debug log
+
+    // Check if the user is authorized to modify this form
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).send('Unauthorized access');
+    }
+
+    // Find the form to update
+    const form = await Form.findOne({ _id: formId, userId, isDeleted: false });
+    if (!form) {
+      return res.status(404).send('Form not found');
+    }
+
+    // Create a new step from the received data
+    const newStep = new FlowStep({
+      type: stepData.type,
+      label: stepData.label,
+      required: stepData.required || false,
+      placeholder: stepData.placeholder || '',
+      validation: new Map(Object.entries(stepData.validation || {})),
+      properties: new Map(Object.entries(stepData.properties || {})),
+      nextSteps: [],  // Initialize nextSteps as an empty array
+      endStep: stepData.endStep || false,
+      value: stepData.value || ''  // Add value here
+    });
+
+    // Add the new step to the form's flow
+    form.flow.steps.push(newStep);
+
+    // Set as start step if this is the first step
+    if (form.flow.steps.length === 1 && !form.flow.startStep) {
+      form.flow.startStep = newStep._id;
+    }
+
+    // If it's an end step, add to the endSteps
+    if (stepData.endStep) {
+      form.flow.endSteps.push(newStep._id);
+    }
+
+    // If this isn't the first step, update the previous step's nextSteps
+    if (form.flow.steps.length > 1) {
+      const previousStep = form.flow.steps[form.flow.steps.length - 2];
+      
+      // Push the new step to nextSteps as an object with stepId
+      previousStep.nextSteps.push({
+        stepId: newStep._id,
+        condition: stepData.condition || {} // Optional condition can be passed
+      });
+
+      // Save the previous step with updated nextSteps
+      await previousStep.save();  
+    }
+
+    // Save the new step and form
+    await newStep.save();
+    await form.save();
+
+    // Populate the flow with the updated steps and send back the response
+    const updatedForm = await Form.findOne({ _id: formId, userId }).populate('flow.steps');
+    res.status(201).json(updatedForm.flow);
+  } catch (err) {
+    console.error('Error adding step:', err);
+    res.status(400).json({
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  }
+});
+
+
+
+
+  
+
+router.put('/:userId/form/:formId/flow/step/:stepId', userAuth, async (req, res) => {
     try {
-      const { userId, formId } = req.params;
+      const { userId, formId, stepId } = req.params;
       const stepData = req.body;
-        console.log("Step data received :" + stepData)
+  
       if (req.user._id.toString() !== userId) {
         return res.status(403).send('Unauthorized access');
       }
   
-      const form = await Form.findOne({ _id: formId, userId, isDeleted: false });
+      const form = await Form.findOne({ _id: formId, userId });
       if (!form) {
         return res.status(404).send('Form not found');
       }
   
-      // Create new step
-      const newStep = new FlowStep({
-        type: stepData.type,
-        label: stepData.label,
-        required: stepData.required || false,
-        placeholder: stepData.placeholder || '',
-        validation: new Map(Object.entries(stepData.validation || {})),
-        properties: new Map(Object.entries(stepData.properties || {})),
-        nextSteps: stepData.nextSteps || [],
-        endStep: stepData.endStep || false,
-      });
-  
-      // Add step to form's flow (sequentially)
-      form.flow.steps.push(newStep);
-  
-      // Set as start step if it's the first one
-      if (form.flow.steps.length === 1 && !form.flow.startStep) {
-        form.flow.startStep = newStep._id;
+      // Find and update the step
+      const stepIndex = form.flow.steps.findIndex(step => step._id.toString() === stepId);
+      if (stepIndex !== -1) {
+        form.flow.steps[stepIndex] = {
+          ...form.flow.steps[stepIndex],
+          ...stepData,
+          value: stepData.value || form.flow.steps[stepIndex].value
+        };
       }
-      
-      if (stepData.endStep) {
-        form.flow.endSteps.push(newStep._id);
-      }
+  
       await form.save();
-  
-      // Send the updated form back with the flow
-      const updatedForm = await Form.findOne({ _id: formId, userId }).populate('flow.steps');
-      res.status(201).json(updatedForm.flow);
+      res.json(form.flow);
     } catch (err) {
-      res.status(400).json({
-        message: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-      });
+      res.status(400).send(err.message);
     }
   });
   
 
-// Update step connections (next steps)
-router.patch('/:userId/form/:formId/flow/step/:stepId/next', async (req, res) => {
-    console.log('Request body for PATCH:', req.body);
-    try {
-        const { userId, formId, stepId } = req.params;
-        const { nextSteps } = req.body;
 
-        if (req.user._id.toString() !== userId) {
-            return res.status(403).send('Unauthorized access');
-        }
-
-        const form = await Form.findOneAndUpdate(
-            { 
-                _id: formId, 
-                userId,
-                'flow.steps._id': stepId 
-            },
-            {
-                $set: {
-                    'flow.steps.$.nextSteps': nextSteps
-                }
-            },
-            { new: true }
-        );
-
-        if (!form) {
-            return res.status(404).send('Form or step not found');
-        }
-
-        res.json(form.flow);
-    } catch (err) {
-        res.status(400).send(err.message);
-    }
-});
 
 // Delete step from flow
 router.delete('/:userId/form/:formId/flow/step/:stepId', userAuth, async (req, res) => {
@@ -147,44 +174,90 @@ router.delete('/:userId/form/:formId/flow/step/:stepId', userAuth, async (req, r
     }
 });
 
+
 // Save form endpoint
 router.post('/:userId/form/:formId/save', userAuth, async (req, res) => {
-    try {
-        const { userId, formId } = req.params;
-        const { name, description, isPublished, inputValues } = req.body; // Add inputValues field
-        console.log("The form is saved");
+  try {
+    const { userId, formId } = req.params;
+    const { name, description, isPublished, steps } = req.body;
 
-        if (req.user._id.toString() !== userId) {
-            return res.status(403).json({ message: 'Unauthorized access' });
-        }
-
-        const form = await Form.findOne({ _id: formId, userId });
-        if (!form) {
-            return res.status(404).send('Form not found');
-        }
-
-        // Update the form with the provided data
-        if (name) form.name = name;
-        if (description) form.description = description;
-        if (typeof isPublished === 'boolean') form.isPublished = isPublished;
-
-        // Update the input values for each step in the flow
-        if (inputValues && Array.isArray(inputValues)) {
-            form.flow.steps.forEach((step) => {
-                // Check if there's an input value for the step
-                const inputValue = inputValues.find(input => input.stepId.toString() === step._id.toString());
-                if (inputValue) {
-                    step.value = inputValue.value; // Save the value entered by the user
-                }
-            });
-        }
-
-        // Save the form
-        await form.save();
-        res.status(200).json({ message: 'Form saved successfully', form });
-    } catch (err) {
-        res.status(500).send({ message: err.message });
+    // Check if the user is authorized to modify this form
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ message: 'Unauthorized access' });
     }
+
+    // Find the form to update
+    const form = await Form.findOne({ _id: formId, userId });
+    if (!form) {
+      return res.status(404).send('Form not found');
+    }
+
+    // Update the form properties
+    if (name) form.name = name;
+    if (description) form.description = description;
+    if (typeof isPublished === 'boolean') form.isPublished = isPublished;
+
+    // Update the steps in the flow
+    if (steps && Array.isArray(steps)) {
+      form.flow.steps = steps.map((step, index) => {
+        const updatedStep = {
+          ...step,
+          value: step.value || '',  // Ensure value is always set
+        };
+
+        // Set nextStep for each step except the last one
+        if (index < steps.length - 1) {
+          updatedStep.nextSteps = [{ stepId: steps[index + 1]._id }];
+        } else {
+          // For the last step, nextStep should be null
+          updatedStep.nextSteps = [];
+        }
+
+        // If the step is an end step, add it to the endSteps
+        if (updatedStep.endStep) {
+          form.flow.endSteps.push(updatedStep._id);
+        }
+
+        return updatedStep;
+      });
+
+      // Set the startStep if it's the first step
+      if (form.flow.steps.length > 0 && !form.flow.startStep) {
+        form.flow.startStep = form.flow.steps[0]._id;
+      }
+    }
+
+    console.log('Saving form with steps:', form.flow.steps); // Debug log
+
+    // Save the form with the updated flow
+    await form.save();
+
+    // Send the updated form back as the response
+    const updatedForm = await Form.findOne({ _id: formId, userId }).populate('flow.steps');
+    res.status(200).json({ message: 'Form saved successfully', form: updatedForm });
+  } catch (err) {
+    console.error('Error saving form:', err);
+    res.status(500).send({ message: err.message });
+  }
+});
+
+
+
+
+// routes/form.js
+router.get('/form/:formId/flow', async (req, res) => {
+  try {
+    const { formId } = req.params;
+
+    const form = await Form.findOne({ _id: formId });
+    if (!form) {
+      return res.status(404).send('Form not found');
+    }
+
+    res.json(form.flow);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
 
 

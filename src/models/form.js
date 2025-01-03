@@ -6,7 +6,7 @@ const flowStepSchema = new Schema({
     type: {
         type: String,
         required: true,
-        enum: ['text', 'image', 'video', 'gif', 'textInput' ,'number', 'email', 'phone', 'date', 'rating', 'button']
+        enum: ['text', 'image', 'video', 'gif', 'textInput', 'number', 'email', 'phone', 'date', 'rating', 'button']
     },
     label: {
         type: String,
@@ -35,11 +35,11 @@ const flowStepSchema = new Schema({
             of: Schema.Types.Mixed
         }
     }],
-    endStep:{
-        type:Boolean,
-        default:false,
+    endStep: {
+        type: Boolean,
+        default: false
     },
-    value: {  // New field to store user input
+    value: {
         type: Schema.Types.Mixed,
         default: null
     }
@@ -69,7 +69,7 @@ const formSchema = new Schema({
         default: null
     },
     flow: {
-        steps: [flowStepSchema], // Remove position, steps will be displayed in order as array grows
+        steps: [flowStepSchema], // Steps will be ordered as they are added
         startStep: {
             type: Schema.Types.ObjectId,
             ref: 'FlowStep'

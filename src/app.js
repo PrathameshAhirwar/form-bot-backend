@@ -5,6 +5,8 @@ const cookieParser = require('cookie-parser')
 const authRouter = require('./Route/auth')
 const dashBoardRouter = require('./Route/dashboardRoute')
 const formFlowRouter = require('./Route/formFlow')
+const formResponse = require('./Route/response')
+const workSpaceRouter = require('./Route/WorkSpaceRoute')
 const cors = require('cors');
 const PORT = 3000
 
@@ -24,8 +26,9 @@ app.options('*', cors());
 
 app.use('/',authRouter);
 app.use('/',dashBoardRouter);
-app.use('/',formFlowRouter)
-
+app.use('/',formFlowRouter);
+app.use('/',formResponse);
+app.use('/',workSpaceRouter);
 
 
 connectDB().then(()=>{
