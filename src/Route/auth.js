@@ -78,6 +78,7 @@ authRouter.post("/login",async (req,res)=>{
             sameSite: 'Lax', // Allows cookies for same-site requests
             expires: new Date(Date.now() + 86400000),
             httpOnly: true, // Ensures cookie is only sent in HTTP(S) requests, not accessible via JavaScript
+            domain: 'https://form-bot-2f4t.vercel.app/',
         });
         res.cookie('userId',isUserExist._id.toString())
         
