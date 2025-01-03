@@ -8,7 +8,7 @@ const formFlowRouter = require('./Route/formFlow')
 const formResponse = require('./Route/response')
 const workSpaceRouter = require('./Route/WorkSpaceRoute')
 const cors = require('cors');
-const PORT = 3000
+const PORT = process.env.PORT || 3000
 
 
 app.use(cors({
