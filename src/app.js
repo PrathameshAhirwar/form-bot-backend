@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000
 
 
 app.use(cors({
-    origin: 'http://localhost:3006', // Your frontend's origin
+    origin: 'https://form-bot-2f4t.vercel.app/', // Your frontend's origin
     methods: ['GET', 'POST', 'PATCH', 'DELETE'], // Allow PATCH method
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true

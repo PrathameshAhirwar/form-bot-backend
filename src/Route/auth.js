@@ -77,7 +77,7 @@ authRouter.post("/login",async (req,res)=>{
             secure: false, // Not using HTTPS in local development
             sameSite: 'Lax', // Allows cookies for same-site requests
             expires: new Date(Date.now() + 86400000),
-            // httpOnly: true, // Ensures cookie is only sent in HTTP(S) requests, not accessible via JavaScript
+            httpOnly: true, // Ensures cookie is only sent in HTTP(S) requests, not accessible via JavaScript
         });
         res.cookie('userId',isUserExist._id.toString())
         
